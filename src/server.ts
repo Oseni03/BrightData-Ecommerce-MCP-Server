@@ -16,7 +16,7 @@ if (!api_token) {
 
 const api_headers = () => ({
 	authorization: `Bearer ${api_token}`,
-	"user-agent": `pricebot/1.0.0`,
+	"user-agent": `pricemorphe/1.0.0`,
 });
 
 type Platform =
@@ -37,11 +37,21 @@ interface ProductData {
 }
 
 interface ServerTools {
+	compare_prices: {
+		execute: (args: {
+			platforms?: Platform[];
+			query?: string;
+			urls?: string[];
+		}) => Promise<string>;
+	};
 	get_product_details: {
 		execute: (args: {
 			include_reviews?: boolean;
 			url: string;
 		}) => Promise<ProductData>;
+	};
+	get_tracked_products: {
+		execute: (args: { url: string }) => Promise<string>;
 	};
 	search_products: {
 		execute: (args: {
@@ -49,6 +59,19 @@ interface ServerTools {
 			platforms?: Platform[];
 			query: string;
 		}) => Promise<{ results: ProductData[] }>;
+	};
+	session_stats: {
+		execute: (args: { url: string }) => Promise<string>;
+	};
+	track_product: {
+		execute: (args: {
+			name?: string;
+			target_price?: number;
+			url: string;
+		}) => Promise<string>;
+	};
+	update_tracked_prices: {
+		execute: (args: { url?: string }) => Promise<string>;
 	};
 }
 
@@ -353,10 +376,7 @@ server.addTool({
 						await server.tools.get_product_details.execute({ url });
 					comparison_results.push(product_details);
 				} catch (e: unknown) {
-					comparison_results.push({
-						error: (e as Error).message,
-						url,
-					});
+					console.log((e as Error).message);
 				}
 			}
 		} else if (query) {
@@ -592,6 +612,4 @@ function get_dataset_id(platform: Platform): string | undefined {
 	return dataset_map[platform] || undefined;
 }
 
-server.start({
-	transportType: "stdio",
-});
+server.start();

@@ -1,0 +1,10 @@
+{
+	"builds": [
+		{
+			"src": "package.json",
+			"use": "@vercel/node"
+		}
+	],
+	"buildCommand": "tsc",
+	"installCommand": "npm install"
+}
