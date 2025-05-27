@@ -4,8 +4,10 @@ import { FastMCP } from "fastmcp";
 import { z } from "zod";
 import "dotenv/config";
 
-// const require = createRequire(import.meta.url);
-// const package_json = require("../package.json");
+import { ProductService } from "./services/product-service.js";
+
+// Initialize services
+const productService = new ProductService();
 
 const api_token = process.env.BRIGHT_DATA_API_TOKEN;
 const unlocker_zone = process.env.WEB_UNLOCKER_ZONE || "ecommerce_tracker";
@@ -37,6 +39,7 @@ interface ProductData {
 }
 
 interface ServerTools {
+	// Product Search and Comparison Tools
 	compare_prices: {
 		execute: (args: {
 			platforms?: Platform[];
@@ -44,11 +47,18 @@ interface ServerTools {
 			urls?: string[];
 		}) => Promise<string>;
 	};
+	get_price_update: {
+		execute: (args: { urls: string[] }) => Promise<string>;
+	};
 	get_product_details: {
+		execute: (args: { url: string }) => Promise<ProductData>;
+	};
+
+	get_user_tracked_products: {
 		execute: (args: {
-			// include_reviews?: boolean;
-			url: string;
-		}) => Promise<ProductData>;
+			include_price_history?: boolean;
+			userId: string;
+		}) => Promise<string>;
 	};
 	search_products: {
 		execute: (args: {
@@ -57,8 +67,26 @@ interface ServerTools {
 			query: string;
 		}) => Promise<{ results: ProductData[] }>;
 	};
-	get_price_update: {
-		execute: (args: { urls: string }) => Promise<string>;
+	track_product: {
+		execute: (args: {
+			productDetails: Record<string, unknown>;
+			url: string;
+			userId: string;
+		}) => Promise<string>;
+	};
+	untrack_product: {
+		execute: (args: {
+			productId: string;
+			userId: string;
+		}) => Promise<string>;
+	};
+	update_product_prices: {
+		execute: (args: {
+			updates: Array<{
+				currentPrice: number;
+				id: string;
+			}>;
+		}) => Promise<string>;
 	};
 }
 
@@ -409,6 +437,71 @@ server.addTool({
 			.optional()
 			.default([])
 			.describe("Specific product URLs to update"),
+	}),
+});
+
+// Product Management Tools
+server.addTool({
+	description: "Get all products tracked by a specific user",
+	execute: async ({ include_price_history, userId }) => {
+		const products = await productService.getUserTrackedProducts(
+			userId,
+			include_price_history
+		);
+		return JSON.stringify(products, null, 2);
+	},
+	name: "get_user_tracked_products",
+	parameters: z.object({
+		include_price_history: z.boolean().optional().default(false),
+		userId: z.string(),
+	}),
+});
+
+server.addTool({
+	description: "Track a new product for a user",
+	execute: async ({ productDetails, url, userId }) => {
+		const product = await productService.trackProduct(
+			userId,
+			url,
+			productDetails
+		);
+		return JSON.stringify(product, null, 2);
+	},
+	name: "track_product",
+	parameters: z.object({
+		productDetails: z.any(),
+		url: z.string().url(),
+		userId: z.string(),
+	}),
+});
+
+server.addTool({
+	description: "Stop tracking a product for a user",
+	execute: async ({ productId, userId }) => {
+		const result = await productService.untrackProduct(userId, productId);
+		return JSON.stringify(result, null, 2);
+	},
+	name: "untrack_product",
+	parameters: z.object({
+		productId: z.string(),
+		userId: z.string(),
+	}),
+});
+
+server.addTool({
+	description: "Update prices for multiple tracked products",
+	execute: async ({ updates }) => {
+		const result = await productService.updateAllProducts(updates);
+		return JSON.stringify(result, null, 2);
+	},
+	name: "update_product_prices",
+	parameters: z.object({
+		updates: z.array(
+			z.object({
+				currentPrice: z.number(),
+				id: z.string(),
+			})
+		),
 	}),
 });
 
