@@ -131,7 +131,7 @@ server.addTool({
 						search_url = `https://www.amazon.com/s?k=${encodeURIComponent(query)}`;
 						break;
 					case "bestbuy":
-						search_url = `https://www.bestbuy.com/site/searchpage.jsp?st=${encodeURIComponent(query)}`;
+						search_url = `https://www.bestbuy.com/site/searchpage.jsp?st=${encodeURIComponent(query)}&intl=nosplash`;
 						break;
 					case "ebay":
 						search_url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
