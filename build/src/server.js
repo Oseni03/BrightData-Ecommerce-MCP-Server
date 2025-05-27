@@ -4,8 +4,10 @@ import { FastMCP } from "fastmcp";
 import { z } from "zod";
 import "dotenv/config";
 import { ProductService } from "./services/product-service.js";
+import { ScraperService } from "./services/scraper-service.js";
 // Initialize services
 const productService = new ProductService();
+const scraperService = new ScraperService();
 const api_token = process.env.BRIGHT_DATA_API_TOKEN;
 const unlocker_zone = process.env.WEB_UNLOCKER_ZONE || "ecommerce_tracker";
 if (!api_token) {
@@ -89,7 +91,6 @@ server.addTool({
                 }
                 const response = await axios({
                     data: {
-                        data_format: "markdown",
                         format: "raw",
                         url: search_url,
                         zone: unlocker_zone,
@@ -99,8 +100,10 @@ server.addTool({
                     responseType: "text",
                     url: "https://api.brightdata.com/request",
                 });
+                const baseUrl = new URL(search_url).origin;
+                const parsedProducts = scraperService.parseSearchResults(response.data, platform, baseUrl);
                 results.push({
-                    data: response.data,
+                    data: parsedProducts,
                     platform,
                     search_url,
                 });
@@ -156,7 +159,6 @@ server.addTool({
             // Fallback to general scraping
             const response = await axios({
                 data: {
-                    data_format: "markdown",
                     format: "raw",
                     url,
                     zone: unlocker_zone,
@@ -166,8 +168,10 @@ server.addTool({
                 responseType: "text",
                 url: "https://api.brightdata.com/request",
             });
+            const baseUrl = new URL(url).origin;
+            const parsedProduct = scraperService.parseProductDetails(response.data, platform, baseUrl);
             return JSON.stringify({
-                data: response.data,
+                data: parsedProduct,
                 method: "scraping",
                 platform,
                 url,
@@ -323,16 +327,44 @@ server.addTool({
     }),
 });
 server.addTool({
-    description: "Track a new product for a user",
-    execute: async ({ productDetails, url, userId }) => {
-        const product = await productService.trackProduct(userId, url, productDetails);
+    description: "Track a new product for a user. All prices are stored in cents/pennies to avoid floating point issues.",
+    execute: async ({ name, platform, target_price, tracking_type, url, userId, }) => {
+        const product = await productService.trackProduct(userId, {
+            name,
+            platform,
+            target_price: target_price ? Math.round(target_price * 100) : null, // Convert to cents/pennies
+            tracking_type,
+            url,
+        });
         return JSON.stringify(product, null, 2);
     },
     name: "track_product",
     parameters: z.object({
-        productDetails: z.any(),
-        url: z.string().url(),
-        userId: z.string(),
+        name: z.string().describe("Product name"),
+        platform: z
+            .enum([
+            "amazon",
+            "ebay",
+            "walmart",
+            "etsy",
+            "bestbuy",
+            "homedepot",
+            "zara",
+            "unknown",
+        ])
+            .describe("The e-commerce platform where the product is listed"),
+        target_price: z
+            .number()
+            .optional()
+            .describe("Target price for price alerts (in dollars)"),
+        tracking_type: z
+            .enum(["price", "stock", "both"])
+            .default("price")
+            .describe("What to track: price changes, stock status, or both"),
+        url: z.string().url().describe("Product URL to track"),
+        userId: z
+            .string()
+            .describe("User ID to associate the tracked product with"),
     }),
 });
 server.addTool({

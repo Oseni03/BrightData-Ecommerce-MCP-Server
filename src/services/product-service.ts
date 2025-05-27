@@ -4,6 +4,9 @@ interface ProductDetails {
 	currentPrice?: number;
 	name?: string;
 	platform?: string;
+	target_price: null | number;
+	tracking_type: string;
+	url: string | URL;
 }
 
 export class ProductService {
@@ -36,11 +39,7 @@ export class ProductService {
 		});
 	}
 
-	async trackProduct(
-		userId: string,
-		url: string,
-		productDetails: ProductDetails
-	) {
+	async trackProduct(userId: string, productDetails: ProductDetails) {
 		const user = await prisma.user.findUnique({
 			where: { userId },
 		});
@@ -52,14 +51,19 @@ export class ProductService {
 		return await prisma.product.create({
 			data: {
 				name: productDetails.name || "New Product",
-				platform: productDetails.platform || new URL(url).hostname,
+				platform:
+					productDetails.platform ||
+					new URL(productDetails.url).hostname,
 				prices: {
 					create: {
 						amount: productDetails.currentPrice || 0,
 					},
 				},
 				tracking_type: "price",
-				url,
+				url:
+					productDetails.url instanceof URL
+						? productDetails.url.toString()
+						: productDetails.url,
 				userId: user.id,
 			},
 		});

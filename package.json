@@ -27,6 +27,7 @@
 	"license": "MIT",
 	"dependencies": {
 		"@prisma/client": "^6.8.2",
+		"cheerio": "^1.0.0",
 		"dotenv": "^16.4.5",
 		"fastmcp": "^1.27.3",
 		"prisma": "^6.8.2",
